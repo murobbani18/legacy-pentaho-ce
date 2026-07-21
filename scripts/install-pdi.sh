@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================================
 #  PDI Universal Silent Installer for Ubuntu 22.04
-#  Mendukung PDI 7 CE, 8 CE, 9 CE, dan 11 DE
+#  Supports PDI 7 CE, 8 CE, 9 CE, and 11 DE
 # ============================================================
 
 set -euo pipefail
@@ -21,28 +21,28 @@ echo "============================================================"
 echo ""
 
 # ============================================================
-#  STEP 1 - CEK ROOT / SUDO
+#  STEP 1 - CHECK ROOT / SUDO
 # ============================================================
-echo -e "${CYAN}[1/6] Memeriksa hak akses...${NC}"
+echo -e "${CYAN}[1/6] Checking permissions...${NC}"
 if [ "$EUID" -ne 0 ]; then
     echo -e "${RED}"
-    echo "      [ERROR] Script ini harus dijalankan sebagai root atau dengan sudo."
-    echo "              Jalankan ulang dengan: sudo bash $(basename "$0")"
+    echo "      [ERROR] This script must be run as root or with sudo."
+    echo "              Re-run with: sudo bash $(basename "$0")"
     echo -e "${NC}"
     exit 1
 fi
 
-# Simpan user asli yang memanggil sudo
+# Store the original user who called sudo
 REAL_USER="${SUDO_USER:-$USER}"
-echo -e "      ${GREEN}OK${NC} - Berjalan sebagai root (user asli: $REAL_USER)."
+echo -e "      ${GREEN}OK${NC} - Running as root (original user: $REAL_USER)."
 echo ""
 
 # ============================================================
-#  STEP 2 - SCAN DAN PILIH FILE ZIP PDI
+#  STEP 2 - SCAN AND SELECT PDI ZIP FILE
 # ============================================================
-echo -e "${CYAN}[2/6] Memindai file installer PDI di folder saat ini...${NC}"
+echo -e "${CYAN}[2/6] Scanning for PDI installer files in current folder...${NC}"
 
-# Mencari file dengan pattern pdi-ce* atau pdi-de*
+# Search for files matching pdi-ce* or pdi-de*
 shopt -s nullglob
 ZIP_FILES=("$SCRIPT_DIR"/pdi-ce*.zip "$SCRIPT_DIR"/pdi-de*.zip)
 shopt -u nullglob
@@ -51,33 +51,33 @@ ZIP_COUNT=${#ZIP_FILES[@]}
 
 if [ "$ZIP_COUNT" -eq 0 ]; then
     echo -e "${RED}"
-    echo "      [ERROR] Tidak ditemukan file installer."
-    echo "              Pastikan file pdi-ce*.zip atau pdi-de*.zip berada di"
-    echo "              folder yang sama dengan script ini."
+    echo "      [ERROR] No installer file found."
+    echo "              Make sure pdi-ce*.zip or pdi-de*.zip is located in"
+    echo "              the same folder as this script."
     echo -e "${NC}"
     exit 1
 fi
 
 if [ "$ZIP_COUNT" -eq 1 ]; then
     SELECTED_ZIP="${ZIP_FILES[0]}"
-    echo -e "      ${GREEN}OK${NC} - Ditemukan 1 installer, otomatis digunakan:"
+    echo -e "      ${GREEN}OK${NC} - Found 1 installer, automatically selected:"
     echo "           $(basename "$SELECTED_ZIP")"
 else
-    echo "      Ditemukan $ZIP_COUNT installer PDI."
+    echo "      Found $ZIP_COUNT PDI installers."
     echo ""
     for i in "${!ZIP_FILES[@]}"; do
         echo "      [$((i+1))] $(basename "${ZIP_FILES[$i]}")"
     done
     echo ""
     while true; do
-        read -rp "      Pilih nomor installer yang akan di-install [1-$ZIP_COUNT]: " ZIP_CHOICE
+        read -rp "      Select installer number to install [1-$ZIP_COUNT]: " ZIP_CHOICE
         if [[ "$ZIP_CHOICE" =~ ^[0-9]+$ ]] && \
            [ "$ZIP_CHOICE" -ge 1 ] && \
            [ "$ZIP_CHOICE" -le "$ZIP_COUNT" ]; then
             SELECTED_ZIP="${ZIP_FILES[$((ZIP_CHOICE - 1))]}"
             break
         fi
-        echo -e "      ${RED}[ERROR] Pilihan tidak valid.${NC}"
+        echo -e "      ${RED}[ERROR] Invalid choice.${NC}"
     done
 fi
 
@@ -85,7 +85,7 @@ ZIP_FILENAME=$(basename "$SELECTED_ZIP")
 echo ""
 
 # ============================================================
-#  MENENTUKAN VERSI PDI & KEBUTUHAN JAVA
+#  DETERMINE PDI VERSION & JAVA REQUIREMENT
 # ============================================================
 if [[ "$ZIP_FILENAME" == *pdi-ce-7* ]]; then
     PDI_VERSION="7"
@@ -104,7 +104,7 @@ elif [[ "$ZIP_FILENAME" == *pdi-de-11* ]]; then
     PDI_EDITION="DE"
     TARGET_JAVA="17"
 else
-    echo -e "${RED}      [ERROR] Versi PDI dari file $ZIP_FILENAME tidak dikenali.${NC}"
+    echo -e "${RED}      [ERROR] PDI version from file $ZIP_FILENAME is not recognized.${NC}"
     exit 1
 fi
 
@@ -115,14 +115,14 @@ LAUNCHER="$INSTALL_DIR/launch-pdi-$PDI_VERSION.sh"
 SYMLINK="/usr/local/bin/pdi-$PDI_VERSION"
 DESKTOP_FILE="/usr/share/applications/pdi-$PDI_VERSION.desktop"
 
-echo -e "      Target Instalasi: ${GREEN}$APP_NAME${NC}"
-echo -e "      Kebutuhan Java  : ${GREEN}Java $TARGET_JAVA${NC}"
+echo -e "      Install target  : ${GREEN}$APP_NAME${NC}"
+echo -e "      Java required   : ${GREEN}Java $TARGET_JAVA${NC}"
 echo ""
 
 # ============================================================
-#  STEP 3 - SCAN KEBUTUHAN JAVA
+#  STEP 3 - SCAN JAVA REQUIREMENT
 # ============================================================
-echo -e "${CYAN}[3/6] Mencari instalasi JDK $TARGET_JAVA...${NC}"
+echo -e "${CYAN}[3/6] Looking for JDK $TARGET_JAVA installation...${NC}"
 echo ""
 
 declare -a JAVA_PATHS=()
@@ -130,21 +130,21 @@ declare -a JAVA_PATHS=()
 add_candidate() {
     local path="$1"
     [ -x "$path/bin/java" ] || return 0
-    
+
     local version raw_ver major
     version=$("$path/bin/java" -version 2>&1 | head -1) || return 0
-    
-    # Ekstrak versi dari string "1.8.0_312" atau "17.0.2"
+
+    # Extract version from "1.8.0_312" or "17.0.2"
     raw_ver=$(echo "$version" | awk -F '"' '/version/ {print $2}') || return 0
-    
+
     if [[ "$raw_ver" == 1.* ]]; then
         major=$(echo "$raw_ver" | cut -d'.' -f2) # "1.8" -> "8"
     else
         major=$(echo "$raw_ver" | cut -d'.' -f1) # "11.x" -> "11", "17.x" -> "17"
     fi
-    
+
     [ "$major" = "$TARGET_JAVA" ] || return 0
-    
+
     local existing
     for existing in "${JAVA_PATHS[@]:-}"; do
         [ "$existing" = "$path" ] && return 0
@@ -163,7 +163,7 @@ safe_scan_dir() {
     return 0
 }
 
-# Scan berdasarkan versi Java target
+# Scan based on target Java version
 safe_scan_dir "/usr/lib/jvm/temurin-$TARGET_JAVA*"
 safe_scan_dir "/usr/lib/jvm/temurin-${TARGET_JAVA}-jdk*"
 safe_scan_dir "/usr/lib/jvm/java-$TARGET_JAVA-openjdk*"
@@ -190,9 +190,9 @@ JAVA_COUNT=${#JAVA_PATHS[@]}
 
 if [ "$JAVA_COUNT" -eq 0 ]; then
     echo -e "${RED}"
-    echo "      [ERROR] Tidak ditemukan instalasi JDK $TARGET_JAVA di sistem ini."
+    echo "      [ERROR] No JDK $TARGET_JAVA installation found on this system."
     echo ""
-    echo "      Silakan install Eclipse Temurin JDK $TARGET_JAVA terlebih dahulu:"
+    echo "      Please install Eclipse Temurin JDK $TARGET_JAVA first:"
     echo ""
     echo "        wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public \\"
     echo "          | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/adoptium.gpg"
@@ -200,7 +200,7 @@ if [ "$JAVA_COUNT" -eq 0 ]; then
     echo "          | sudo tee /etc/apt/sources.list.d/adoptium.list"
     echo "        sudo apt update && sudo apt install -y temurin-${TARGET_JAVA}-jdk"
     echo ""
-    echo "      Setelah install selesai, jalankan kembali script ini."
+    echo "      After installation is complete, re-run this script."
     echo -e "${NC}"
     exit 1
 fi
@@ -208,71 +208,71 @@ fi
 if [ "$JAVA_COUNT" -eq 1 ]; then
     SELECTED_JAVA="${JAVA_PATHS[0]}"
     echo ""
-    echo "      Ditemukan 1 instalasi JDK $TARGET_JAVA, otomatis digunakan:"
+    echo "      Found 1 JDK $TARGET_JAVA installation, automatically selected:"
     echo -e "      ${GREEN}$SELECTED_JAVA${NC}"
 else
     echo ""
-    echo "      Ditemukan $JAVA_COUNT instalasi JDK $TARGET_JAVA."
+    echo "      Found $JAVA_COUNT JDK $TARGET_JAVA installations."
     while true; do
-        read -rp "      Pilih nomor JDK yang akan digunakan [1-$JAVA_COUNT]: " USER_CHOICE
+        read -rp "      Select JDK number to use [1-$JAVA_COUNT]: " USER_CHOICE
         if [[ "$USER_CHOICE" =~ ^[0-9]+$ ]] && \
            [ "$USER_CHOICE" -ge 1 ] && \
            [ "$USER_CHOICE" -le "$JAVA_COUNT" ]; then
             SELECTED_JAVA="${JAVA_PATHS[$((USER_CHOICE - 1))]}"
             break
         fi
-        echo -e "      ${RED}[ERROR] Pilihan tidak valid. Masukkan angka 1 sampai $JAVA_COUNT.${NC}"
+        echo -e "      ${RED}[ERROR] Invalid choice. Enter a number between 1 and $JAVA_COUNT.${NC}"
     done
 fi
 
 echo ""
-echo -e "      JDK yang dipilih: ${GREEN}$SELECTED_JAVA${NC}"
+echo -e "      Selected JDK: ${GREEN}$SELECTED_JAVA${NC}"
 echo ""
 
 # ============================================================
 #  STEP 4 - EXTRACT ZIP
 # ============================================================
-echo -e "${CYAN}[4/6] Mengekstrak $APP_NAME...${NC}"
+echo -e "${CYAN}[4/6] Extracting $APP_NAME...${NC}"
 
 if ! command -v unzip &>/dev/null; then
-    echo -e "      ${YELLOW}unzip tidak ditemukan, menginstall...${NC}"
+    echo -e "      ${YELLOW}unzip not found, installing...${NC}"
     apt-get install -y unzip -qq
 fi
 
 if [ -d "$INSTALL_DIR" ]; then
     echo ""
     echo "============================================================"
-    echo -e "${YELLOW} [PERINGATAN] Folder instalasi sudah ada:${NC}"
+    echo -e "${YELLOW} [WARNING] Install folder already exists:${NC}"
     echo "              $INSTALL_DIR"
     echo "============================================================"
-    echo "  [1] Timpa         (Tumpuk file lama, plugin/kustom aman)"
-    echo "  [2] Clean Install (Hapus total folder lama, ekstrak baru)"
-    echo "  [3] Batal"
+    echo "  [1] Overwrite     (Overlay old files, plugins/custom files safe)"
+    echo "  [2] Clean Install (Delete old folder entirely, extract fresh)"
+    echo "  [3] Cancel"
     echo "============================================================"
     echo ""
     while true; do
-        read -rp "Pilih tindakan [1-3]: " ACTION_CHOICE
+        read -rp "Select action [1-3]: " ACTION_CHOICE
         case "$ACTION_CHOICE" in
             1)
                 echo ""
-                echo "      Perilaku dipilih: Menimpa file existing..."
+                echo "      Action selected: Overwriting existing files..."
                 break
                 ;;
             2)
                 echo ""
-                echo "      Perilaku dipilih: Clean Install..."
-                echo "      Menghapus folder lama, harap tunggu..."
+                echo "      Action selected: Clean Install..."
+                echo "      Removing old folder, please wait..."
                 rm -rf "$INSTALL_DIR"
-                echo -e "      ${GREEN}OK${NC} - Folder lama dihapus."
+                echo -e "      ${GREEN}OK${NC} - Old folder removed."
                 break
                 ;;
             3)
                 echo ""
-                echo "      [INFO] Instalasi dibatalkan oleh pengguna."
+                echo "      [INFO] Installation cancelled by user."
                 exit 0
                 ;;
             *)
-                echo -e "      ${RED}[ERROR] Pilihan tidak valid. Masukkan 1, 2, atau 3.${NC}"
+                echo -e "      ${RED}[ERROR] Invalid choice. Enter 1, 2, or 3.${NC}"
                 ;;
         esac
     done
@@ -280,8 +280,8 @@ fi
 
 mkdir -p "$INSTALL_DIR" 2>/dev/null || {
     echo -e "${RED}"
-    echo "      [ERROR] Gagal membuat direktori: $INSTALL_DIR"
-    echo "              Pastikan script dijalankan dengan sudo."
+    echo "      [ERROR] Failed to create directory: $INSTALL_DIR"
+    echo "              Make sure the script is run with sudo."
     echo -e "${NC}"
     exit 1
 }
@@ -289,40 +289,40 @@ mkdir -p "$INSTALL_DIR" 2>/dev/null || {
 rm -rf "$TEMP_EXTRACT"
 mkdir -p "$TEMP_EXTRACT"
 
-echo "      Mengekstrak zip, harap tunggu..."
+echo "      Extracting zip, please wait..."
 unzip -q "$SELECTED_ZIP" -d "$TEMP_EXTRACT"
 
-echo "      Verifikasi hasil ekstraksi..."
+echo "      Verifying extraction result..."
 if [ ! -d "$TEMP_EXTRACT/data-integration" ]; then
     echo -e "${RED}"
-    echo "      [ERROR] Folder 'data-integration' tidak ditemukan setelah ekstraksi."
-    echo "      Isi folder temp:"
+    echo "      [ERROR] Folder 'data-integration' not found after extraction."
+    echo "      Temp folder contents:"
     ls "$TEMP_EXTRACT"
     echo -e "${NC}"
     rm -rf "$TEMP_EXTRACT"
     exit 1
 fi
 
-echo "      Memindahkan file ke $INSTALL_DIR..."
+echo "      Moving files to $INSTALL_DIR..."
 cp -r "$TEMP_EXTRACT/data-integration/." "$INSTALL_DIR/"
 rm -rf "$TEMP_EXTRACT"
 
 find "$INSTALL_DIR" -name "*.sh" -exec chmod +x {} \;
-echo -e "      ${GREEN}OK${NC} - Ekstraksi selesai."
+echo -e "      ${GREEN}OK${NC} - Extraction complete."
 echo ""
 
 # ============================================================
 #  STEP 5 - FIX OWNERSHIP
 # ============================================================
-echo -e "${CYAN}[5/6] Memperbaiki ownership folder...${NC}"
+echo -e "${CYAN}[5/6] Fixing folder ownership...${NC}"
 chown -R "$REAL_USER:$REAL_USER" "$INSTALL_DIR"
-echo -e "      ${GREEN}OK${NC} - Ownership disetel ke: $REAL_USER"
+echo -e "      ${GREEN}OK${NC} - Ownership set to: $REAL_USER"
 echo ""
 
 # ============================================================
 #  STEP 6 - LAUNCHER, SYMLINK, DESKTOP
 # ============================================================
-echo -e "${CYAN}[6/6] Membuat launcher dan shortcut...${NC}"
+echo -e "${CYAN}[6/6] Creating launcher and shortcuts...${NC}"
 
 cat > "$LAUNCHER" << LAUNCHER_EOF
 #!/bin/bash
@@ -335,10 +335,10 @@ LAUNCHER_EOF
 
 chmod +x "$LAUNCHER"
 chown "$REAL_USER:$REAL_USER" "$LAUNCHER"
-echo -e "      ${GREEN}OK${NC} - Launcher dibuat: $LAUNCHER"
+echo -e "      ${GREEN}OK${NC} - Launcher created: $LAUNCHER"
 
 ln -sf "$LAUNCHER" "$SYMLINK"
-echo -e "      ${GREEN}OK${NC} - Symlink global: $SYMLINK"
+echo -e "      ${GREEN}OK${NC} - Global symlink: $SYMLINK"
 
 ICON_PATH="$INSTALL_DIR/spoon.png"
 
@@ -358,7 +358,7 @@ StartupNotify=true
 DESKTOP_EOF
 
 update-desktop-database 2>/dev/null || true
-echo -e "      ${GREEN}OK${NC} - Application shortcut dibuat: $DESKTOP_FILE"
+echo -e "      ${GREEN}OK${NC} - Application shortcut created: $DESKTOP_FILE"
 
 # Generate uninstaller
 UNINSTALL_SCRIPT="$INSTALL_DIR/uninstall-pdi-$PDI_VERSION.sh"
@@ -366,8 +366,8 @@ cat > "$UNINSTALL_SCRIPT" << UNINSTALL_EOF
 #!/bin/bash
 # ============================================================
 #  $APP_NAME - Uninstaller
-#  Tanggal install : $(date '+%Y-%m-%d %H:%M:%S')
-#  User            : $REAL_USER
+#  Install date : $(date '+%Y-%m-%d %H:%M:%S')
+#  User         : $REAL_USER
 # ============================================================
 
 set -euo pipefail
@@ -388,104 +388,104 @@ echo "  $APP_NAME - Uninstaller"
 echo "============================================================"
 echo ""
 
-echo -e "\${CYAN}[1/4] Memeriksa hak akses...\${NC}"
+echo -e "\${CYAN}[1/4] Checking permissions...\${NC}"
 if [ "\$EUID" -ne 0 ]; then
     echo -e "\${RED}"
-    echo "      [ERROR] Jalankan dengan: sudo bash \$(basename "\$0")"
+    echo "      [ERROR] Run with: sudo bash \$(basename "\$0")"
     echo -e "\${NC}"
     exit 1
 fi
-echo -e "      \${GREEN}OK\${NC} - Berjalan sebagai root."
+echo -e "      \${GREEN}OK\${NC} - Running as root."
 echo ""
 
-echo -e "\${CYAN}[2/4] Memeriksa komponen yang akan dihapus...\${NC}"
+echo -e "\${CYAN}[2/4] Checking components to remove...\${NC}"
 FOUND=0
-[ -d "\$INSTALL_DIR" ]  && FOUND=1 && echo "        ✓ Folder instalasi : \$INSTALL_DIR"
-[ -L "\$SYMLINK" ]      && FOUND=1 && echo "        ✓ Symlink global   : \$SYMLINK"
-[ -f "\$DESKTOP_FILE" ] && FOUND=1 && echo "        ✓ Desktop shortcut : \$DESKTOP_FILE"
+[ -d "\$INSTALL_DIR" ]  && FOUND=1 && echo "        ✓ Install folder : \$INSTALL_DIR"
+[ -L "\$SYMLINK" ]      && FOUND=1 && echo "        ✓ Global symlink : \$SYMLINK"
+[ -f "\$DESKTOP_FILE" ] && FOUND=1 && echo "        ✓ Desktop shortcut: \$DESKTOP_FILE"
 
 if [ "\$FOUND" -eq 0 ]; then
-    echo -e "\${YELLOW}      [INFO] Tidak ada komponen $APP_NAME yang ditemukan.\${NC}"
+    echo -e "\${YELLOW}      [INFO] No $APP_NAME components found.\${NC}"
     exit 0
 fi
 echo ""
 
-echo -e "\${CYAN}[3/4] Konfirmasi uninstall...\${NC}"
+echo -e "\${CYAN}[3/4] Confirm uninstall...\${NC}"
 echo ""
-echo -e "  \${YELLOW}[PERINGATAN]\${NC} Tindakan ini tidak bisa dibatalkan."
-echo "  Yang TIDAK dihapus: file .ktr/.kjb dan instalasi Java."
+echo -e "  \${YELLOW}[WARNING]\${NC} This action cannot be undone."
+echo "  What will NOT be removed: .ktr/.kjb files and Java installation."
 echo ""
 while true; do
-    read -rp "  Lanjutkan uninstall $APP_NAME? [y/N]: " CONFIRM
+    read -rp "  Proceed with uninstalling $APP_NAME? [y/N]: " CONFIRM
     case "\$CONFIRM" in
         [yY]|[yY][eE][sS]) echo ""; break ;;
         [nN]|[nN][oO]|"")
-            echo "      [INFO] Uninstall dibatalkan."
+            echo "      [INFO] Uninstall cancelled."
             exit 0 ;;
-        *) echo "      Masukkan y atau n." ;;
+        *) echo "      Enter y or n." ;;
     esac
 done
 
-echo -e "\${CYAN}[4/4] Menghapus komponen...\${NC}"
+echo -e "\${CYAN}[4/4] Removing components...\${NC}"
 
 if [ -d "\$INSTALL_DIR" ]; then
     rm -rf "\$INSTALL_DIR"
-    echo -e "      \${GREEN}OK\${NC} - Folder instalasi dihapus."
+    echo -e "      \${GREEN}OK\${NC} - Install folder removed."
 else
-    echo -e "      \${YELLOW}SKIP\${NC} - Folder tidak ditemukan."
+    echo -e "      \${YELLOW}SKIP\${NC} - Folder not found."
 fi
 
 if [ -L "\$SYMLINK" ]; then
     rm -f "\$SYMLINK"
-    echo -e "      \${GREEN}OK\${NC} - Symlink dihapus: \$SYMLINK"
+    echo -e "      \${GREEN}OK\${NC} - Symlink removed: \$SYMLINK"
 else
-    echo -e "      \${YELLOW}SKIP\${NC} - Symlink tidak ditemukan."
+    echo -e "      \${YELLOW}SKIP\${NC} - Symlink not found."
 fi
 
 if [ -f "\$DESKTOP_FILE" ]; then
     rm -f "\$DESKTOP_FILE"
-    echo -e "      \${GREEN}OK\${NC} - Desktop shortcut dihapus."
+    echo -e "      \${GREEN}OK\${NC} - Desktop shortcut removed."
 else
-    echo -e "      \${YELLOW}SKIP\${NC} - Desktop shortcut tidak ditemukan."
+    echo -e "      \${YELLOW}SKIP\${NC} - Desktop shortcut not found."
 fi
 
 update-desktop-database 2>/dev/null || true
-echo -e "      \${GREEN}OK\${NC} - Application drawer diperbarui."
+echo -e "      \${GREEN}OK\${NC} - Application drawer updated."
 echo ""
 
 echo "============================================================"
-echo -e "  \${GREEN}Uninstall Selesai!\${NC}"
+echo -e "  \${GREEN}Uninstall Complete!\${NC}"
 echo "============================================================"
 echo ""
 UNINSTALL_EOF
 
 chmod +x "$UNINSTALL_SCRIPT"
 chown "$REAL_USER:$REAL_USER" "$UNINSTALL_SCRIPT"
-echo -e "      ${GREEN}OK${NC} - Uninstaller dibuat: $UNINSTALL_SCRIPT"
+echo -e "      ${GREEN}OK${NC} - Uninstaller created: $UNINSTALL_SCRIPT"
 echo ""
 
 # ============================================================
 #  SUMMARY
 # ============================================================
 echo "============================================================"
-echo -e "  ${GREEN}Instalasi $APP_NAME Selesai!${NC}"
+echo -e "  ${GREEN}$APP_NAME Installation Complete!${NC}"
 echo "============================================================"
 echo ""
-echo "  Direktori instalasi : $INSTALL_DIR"
-echo "  JDK yang digunakan  : $SELECTED_JAVA"
-echo "  Launcher            : $LAUNCHER"
-echo "  Global command      : pdi-$PDI_VERSION"
-echo "  Ownership           : $REAL_USER"
-echo "  Uninstaller         : $INSTALL_DIR/uninstall-pdi-$PDI_VERSION.sh"
+echo "  Install directory : $INSTALL_DIR"
+echo "  JDK used          : $SELECTED_JAVA"
+echo "  Launcher          : $LAUNCHER"
+echo "  Global command    : pdi-$PDI_VERSION"
+echo "  Ownership         : $REAL_USER"
+echo "  Uninstaller       : $INSTALL_DIR/uninstall-pdi-$PDI_VERSION.sh"
 echo ""
-echo "  Cara menjalankan $APP_NAME:"
+echo "  To launch $APP_NAME:"
 echo "    pdi-$PDI_VERSION"
-echo "    atau: bash $LAUNCHER"
+echo "    or: bash $LAUNCHER"
 echo ""
-echo "  Untuk uninstall:"
+echo "  To uninstall:"
 echo "    sudo bash $INSTALL_DIR/uninstall-pdi-$PDI_VERSION.sh"
 echo ""
-echo "  Aplikasi juga tersedia di Application Drawer (cari 'PDI $PDI_VERSION')"
+echo "  The app is also available in the Application Drawer (search 'PDI $PDI_VERSION')"
 echo ""
 echo "============================================================"
 echo ""

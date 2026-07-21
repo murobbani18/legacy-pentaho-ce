@@ -16,9 +16,9 @@ echo ============================================================
 echo.
 
 :: ============================================================
-::  STEP 1 - SCAN DAN PILIH FILE ZIP PDI
+::  STEP 1 - SCAN AND SELECT PDI ZIP FILE
 :: ============================================================
-echo [1/5] Memindai file installer PDI di folder saat ini...
+echo [1/5] Scanning for PDI installer files in current folder...
 
 for %%F in ("%SCRIPT_DIR%pdi-ce*.zip" "%SCRIPT_DIR%pdi-de*.zip") do (
     if exist "%%F" (
@@ -30,9 +30,9 @@ for %%F in ("%SCRIPT_DIR%pdi-ce*.zip" "%SCRIPT_DIR%pdi-de*.zip") do (
 
 if !ZIP_COUNT!==0 (
     echo.
-    echo [ERROR] Tidak ditemukan file installer.
-    echo         Pastikan file pdi-ce*.zip atau pdi-de*.zip berada di
-    echo         folder yang sama dengan script ini.
+    echo [ERROR] No installer file found.
+    echo         Make sure pdi-ce*.zip or pdi-de*.zip is located in
+    echo         the same folder as this script.
     echo.
     pause
     exit /b 1
@@ -41,19 +41,19 @@ if !ZIP_COUNT!==0 (
 if !ZIP_COUNT!==1 (
     set "SELECTED_ZIP_PATH=!ZIP_PATH_1!"
     set "SELECTED_ZIP_NAME=!ZIP_NAME_1!"
-    echo       OK - Ditemukan 1 installer, otomatis digunakan:
+    echo       OK - Found 1 installer, automatically selected:
     echo            !SELECTED_ZIP_NAME!
     goto :zip_selected
 )
 
-echo       Ditemukan !ZIP_COUNT! installer PDI.
+echo       Found !ZIP_COUNT! PDI installers.
 echo.
 for /l %%I in (1,1,!ZIP_COUNT!) do (
     echo       [%%I] !ZIP_NAME_%%I!
 )
 echo.
 :prompt_zip
-set /p "ZIP_CHOICE=      Pilih nomor installer yang akan di-install [1-!ZIP_COUNT!]: "
+set /p "ZIP_CHOICE=      Select installer number to install [1-!ZIP_COUNT!]: "
 
 set "SELECTED_ZIP_PATH="
 for /l %%I in (1,1,!ZIP_COUNT!) do (
@@ -64,7 +64,7 @@ for /l %%I in (1,1,!ZIP_COUNT!) do (
 )
 
 if not defined SELECTED_ZIP_PATH (
-    echo       [ERROR] Pilihan tidak valid.
+    echo       [ERROR] Invalid choice.
     goto :prompt_zip
 )
 
@@ -72,7 +72,7 @@ if not defined SELECTED_ZIP_PATH (
 echo.
 
 :: ============================================================
-::  MENENTUKAN VERSI PDI & KEBUTUHAN JAVA
+::  DETERMINE PDI VERSION & JAVA REQUIREMENT
 :: ============================================================
 echo !SELECTED_ZIP_NAME! | findstr /i "pdi-ce-7" >nul
 if not errorlevel 1 (
@@ -103,7 +103,7 @@ if not errorlevel 1 (
     goto :version_set
 )
 
-echo [ERROR] Versi PDI dari file !SELECTED_ZIP_NAME! tidak dikenali.
+echo [ERROR] PDI version from file !SELECTED_ZIP_NAME! is not recognized.
 pause
 exit /b 1
 
@@ -113,17 +113,17 @@ set "INSTALL_DIR=C:\pentaho\design-tools\pdi-!PDI_VERSION!"
 set "TEMP_EXTRACT=C:\pdi!PDI_VERSION!_tmp"
 set "LAUNCHER=!INSTALL_DIR!\launch-pdi-!PDI_VERSION!.bat"
 
-echo       Target Instalasi: !APP_NAME!
-echo       Kebutuhan Java  : Java !TARGET_JAVA!
+echo       Install target  : !APP_NAME!
+echo       Java required   : Java !TARGET_JAVA!
 echo.
 
 :: ============================================================
-::  STEP 2 - SCAN KEBUTUHAN JAVA
+::  STEP 2 - SCAN JAVA REQUIREMENT
 :: ============================================================
-echo [2/5] Mencari instalasi JDK !TARGET_JAVA!...
+echo [2/5] Looking for JDK !TARGET_JAVA! installation...
 echo.
 
-:: --- Scan Registry JavaSoft (Oracle, dsb) ---
+:: --- Registry Scan (Oracle, etc.) ---
 for /f "tokens=2*" %%A in ('reg query "HKLM\SOFTWARE\JavaSoft\Java Development Kit" /s /v "JavaHome" 2^>nul ^| findstr /i "JavaHome"') do (
     if exist "%%B\bin\java.exe" call :check_java_version "%%B"
 )
@@ -144,8 +144,8 @@ for %%B in (
 
 if !JAVA_COUNT!==0 (
     echo.
-    echo [ERROR] Tidak ditemukan instalasi JDK !TARGET_JAVA! di sistem ini.
-    echo         Silakan install Temurin JDK !TARGET_JAVA! terlebih dahulu dari:
+    echo [ERROR] No JDK !TARGET_JAVA! installation found on this system.
+    echo         Please install Temurin JDK !TARGET_JAVA! first from:
     echo         https://adoptium.net/temurin/releases/?version=!TARGET_JAVA!
     echo.
     pause
@@ -155,15 +155,15 @@ if !JAVA_COUNT!==0 (
 if !JAVA_COUNT!==1 (
     set "SELECTED_JAVA=!JAVA_PATH_1!"
     echo.
-    echo       Ditemukan 1 instalasi JDK !TARGET_JAVA!, otomatis digunakan:
+    echo       Found 1 JDK !TARGET_JAVA! installation, automatically selected:
     echo       !SELECTED_JAVA!
     goto :java_selected
 )
 
 echo.
-echo       Ditemukan !JAVA_COUNT! instalasi JDK !TARGET_JAVA!.
+echo       Found !JAVA_COUNT! JDK !TARGET_JAVA! installations.
 :prompt_java
-set /p "USER_CHOICE=      Pilih nomor JDK yang akan digunakan [1-!JAVA_COUNT!]: "
+set /p "USER_CHOICE=      Select JDK number to use [1-!JAVA_COUNT!]: "
 
 set "SELECTED_JAVA="
 for /l %%I in (1,1,!JAVA_COUNT!) do (
@@ -171,56 +171,56 @@ for /l %%I in (1,1,!JAVA_COUNT!) do (
 )
 
 if not defined SELECTED_JAVA (
-    echo       [ERROR] Pilihan tidak valid.
+    echo       [ERROR] Invalid choice.
     goto :prompt_java
 )
 
 :java_selected
 echo.
-echo       JDK yang dipilih: !SELECTED_JAVA!
+echo       Selected JDK: !SELECTED_JAVA!
 echo.
 
 :: ============================================================
 ::  STEP 3 - EXTRACT ZIP
 :: ============================================================
-echo [3/5] Mengekstrak !APP_NAME!...
+echo [3/5] Extracting !APP_NAME!...
 
 if not exist "!INSTALL_DIR!" goto :proceed_install
 
 echo.
 echo ============================================================
-echo [PERINGATAN] Folder instalasi sudah ada: 
-echo              !INSTALL_DIR!
+echo [WARNING] Install folder already exists:
+echo           !INSTALL_DIR!
 echo ============================================================
-echo  [1] Timpa         (Langsung tumpuk file lama, file kustom/plugin tetap aman)
-echo  [2] Clean Install (Hapus total folder lama sebelum ekstrak baru)
-echo  [3] Batal         (Hentikan proses instalasi)
+echo  [1] Overwrite     (Overlay old files, custom/plugin files safe)
+echo  [2] Clean Install (Delete old folder entirely before extracting)
+echo  [3] Cancel        (Stop the installation process)
 echo ============================================================
 echo.
 
 :prompt_action
-set /p "ACTION_CHOICE=Pilih tindakan [1-3]: "
+set /p "ACTION_CHOICE=Select action [1-3]: "
 
 if "!ACTION_CHOICE!"=="1" goto :handle_overwrite
 if "!ACTION_CHOICE!"=="2" goto :handle_clean
 if "!ACTION_CHOICE!"=="3" goto :handle_cancel
 
-echo [ERROR] Pilihan tidak valid. Silakan pilih 1, 2, atau 3.
+echo [ERROR] Invalid choice. Please select 1, 2, or 3.
 goto :prompt_action
 
 :handle_overwrite
 echo.
-echo Perilaku dipilih: Menimpa file existing...
+echo Action selected: Overwriting existing files...
 goto :proceed_install
 
 :handle_clean
 echo.
-echo Perilaku dipilih: Melakukan Clean Install...
-echo Menghapus folder lama, harap tunggu...
+echo Action selected: Clean Install...
+echo Removing old folder, please wait...
 rmdir /s /q "!INSTALL_DIR!"
 if errorlevel 1 (
-    echo [ERROR] Gagal menghapus folder existing.
-    echo         Pastikan tidak ada aplikasi atau CMD lain yang sedang membuka folder tersebut.
+    echo [ERROR] Failed to remove existing folder.
+    echo         Make sure no other application or CMD window has the folder open.
     pause
     exit /b 1
 )
@@ -228,7 +228,7 @@ goto :proceed_install
 
 :handle_cancel
 echo.
-echo [INFO] Instalasi dibatalkan oleh pengguna.
+echo [INFO] Installation cancelled by user.
 pause
 exit /b 0
 
@@ -237,8 +237,8 @@ if not exist "!INSTALL_DIR!" (
     mkdir "!INSTALL_DIR!" 2>nul
     if errorlevel 1 (
         echo.
-        echo [ERROR] Gagal membuat direktori: !INSTALL_DIR!
-        echo         Coba jalankan script ini sebagai Administrator.
+        echo [ERROR] Failed to create directory: !INSTALL_DIR!
+        echo         Try running this script as Administrator.
         echo.
         pause
         exit /b 1
@@ -248,25 +248,25 @@ if not exist "!INSTALL_DIR!" (
 if exist "!TEMP_EXTRACT!" rmdir /s /q "!TEMP_EXTRACT!"
 mkdir "!TEMP_EXTRACT!"
 
-echo         Mengekstrak zip, harap tunggu...
+echo         Extracting zip, please wait...
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "Expand-Archive -LiteralPath '!SELECTED_ZIP_PATH!' -DestinationPath '!TEMP_EXTRACT!' -Force"
 
 if errorlevel 1 (
     echo.
-    echo [ERROR] Gagal mengekstrak file zip.
+    echo [ERROR] Failed to extract zip file.
     echo.
     rmdir /s /q "!TEMP_EXTRACT!" 2>nul
     pause
     exit /b 1
 )
 
-echo         Verifikasi hasil ekstraksi...
+echo         Verifying extraction result...
 if not exist "!TEMP_EXTRACT!\data-integration\" (
     echo.
-    echo [ERROR] Folder 'data-integration' tidak ditemukan setelah ekstraksi.
-    echo         Isi folder temp:
+    echo [ERROR] Folder 'data-integration' not found after extraction.
+    echo         Temp folder contents:
     dir "!TEMP_EXTRACT!" /b
     echo.
     rmdir /s /q "!TEMP_EXTRACT!" 2>nul
@@ -274,11 +274,11 @@ if not exist "!TEMP_EXTRACT!\data-integration\" (
     exit /b 1
 )
 
-echo         Memindahkan file ke !INSTALL_DIR!...
+echo         Moving files to !INSTALL_DIR!...
 xcopy "!TEMP_EXTRACT!\data-integration\*" "!INSTALL_DIR!\" /E /H /Y /Q >nul 2>&1
 if errorlevel 1 (
     echo.
-    echo [ERROR] Gagal memindahkan file ke direktori instalasi.
+    echo [ERROR] Failed to move files to install directory.
     echo.
     rmdir /s /q "!TEMP_EXTRACT!" 2>nul
     pause
@@ -286,13 +286,13 @@ if errorlevel 1 (
 )
 
 rmdir /s /q "!TEMP_EXTRACT!" 2>nul
-echo         OK - Ekstraksi selesai.
+echo         OK - Extraction complete.
 echo.
 
 :: ============================================================
 ::  STEP 4 - GENERATE LAUNCHER
 :: ============================================================
-echo [4/5] Membuat file launcher...
+echo [4/5] Creating launcher file...
 
 (
     echo @echo off
@@ -305,32 +305,32 @@ echo [4/5] Membuat file launcher...
 
 if not exist "!LAUNCHER!" (
     echo.
-    echo [ERROR] Gagal membuat file launcher.
+    echo [ERROR] Failed to create launcher file.
     echo.
     pause
     exit /b 1
 )
-echo       OK - Launcher dibuat: !LAUNCHER!
+echo       OK - Launcher created: !LAUNCHER!
 echo.
 
 :: ============================================================
-::  STEP 5 - SHORTCUT DESKTOP (OPSIONAL)
+::  STEP 5 - DESKTOP SHORTCUT (OPTIONAL)
 :: ============================================================
-echo [5/5] Shortcut desktop...
+echo [5/5] Desktop shortcut...
 echo.
-set /p "SHORTCUT_CHOICE=      Buat shortcut !APP_NAME! di Desktop? [Y/N]: "
+set /p "SHORTCUT_CHOICE=      Create !APP_NAME! shortcut on Desktop? [Y/N]: "
 
 if /i "!SHORTCUT_CHOICE!"=="Y" (
     powershell -NoProfile -ExecutionPolicy Bypass -Command ^
         "$ws = New-Object -ComObject WScript.Shell; $sc = $ws.CreateShortcut('%USERPROFILE%\Desktop\!APP_NAME!.lnk'); $sc.TargetPath = '!LAUNCHER!'; $sc.WorkingDirectory = '!INSTALL_DIR!'; $sc.Description = 'Pentaho Data Integration !PDI_VERSION! !PDI_EDITION!'; $sc.Save()"
 
     if exist "%USERPROFILE%\Desktop\!APP_NAME!.lnk" (
-        echo       OK - Shortcut dibuat di Desktop.
+        echo       OK - Shortcut created on Desktop.
     ) else (
-        echo       [WARN] Shortcut gagal dibuat, tapi instalasi tetap berhasil.
+        echo       [WARN] Shortcut creation failed, but installation succeeded.
     )
 ) else (
-    echo       Shortcut dilewati.
+    echo       Shortcut skipped.
 )
 
 :: ============================================================
@@ -338,14 +338,14 @@ if /i "!SHORTCUT_CHOICE!"=="Y" (
 :: ============================================================
 echo.
 echo ============================================================
-echo   Instalasi !APP_NAME! Selesai!
+echo   !APP_NAME! Installation Complete!
 echo ============================================================
 echo.
-echo   Direktori instalasi : !INSTALL_DIR!
-echo   JDK yang digunakan  : !SELECTED_JAVA!
-echo   Launcher            : !LAUNCHER!
+echo   Install directory : !INSTALL_DIR!
+echo   JDK used          : !SELECTED_JAVA!
+echo   Launcher          : !LAUNCHER!
 echo.
-echo   Untuk menjalankan !APP_NAME!, eksekusi:
+echo   To launch !APP_NAME!, run:
 echo   !LAUNCHER!
 echo.
 echo ============================================================
@@ -359,13 +359,13 @@ goto :eof
 :: ============================================================
 :check_java_version
 set "CANDIDATE=%~1"
-:: Cek duplikat
+:: Check for duplicates
 if !JAVA_COUNT! GTR 0 (
     for /l %%I in (1,1,!JAVA_COUNT!) do (
         if /i "!JAVA_PATH_%%I!"=="!CANDIDATE!" exit /b
     )
 )
-:: Cek versi melalui java -version (Dibungkus extra quotes "" agar CMD tidak memotong C:\Program Files)
+:: Check version via java -version (extra quotes "" prevent CMD from splitting C:\Program Files)
 for /f "usebackq tokens=3" %%V in (`""!CANDIDATE!\bin\java.exe" -version 2^>^&1 ^| findstr /i "version""`) do (
     set "VER=%%V"
     set "VER=!VER:"=!"
