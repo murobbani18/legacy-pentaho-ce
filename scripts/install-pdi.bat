@@ -18,7 +18,7 @@ echo.
 :: ============================================================
 ::  STEP 1 - SCAN AND SELECT PDI ZIP FILE
 :: ============================================================
-echo [1/5] Scanning for PDI installer files in current folder...
+echo [1/6] Scanning for PDI installer files in current folder...
 
 for %%F in ("%SCRIPT_DIR%pdi-ce*.zip" "%SCRIPT_DIR%pdi-de*.zip") do (
     if exist "%%F" (
@@ -118,9 +118,47 @@ echo       Java required   : Java !TARGET_JAVA!
 echo.
 
 :: ============================================================
-::  STEP 2 - SCAN JAVA REQUIREMENT
+::  STEP 3 - INSTALLATION PATH
 :: ============================================================
-echo [2/5] Looking for JDK !TARGET_JAVA! installation...
+echo [3/6] Installation destination...
+echo.
+echo       Default path: !INSTALL_DIR!
+echo.
+set /p "CUSTOM_PATH_CHOICE=      Use a custom installation path? [Y/N]: "
+
+if /i "!CUSTOM_PATH_CHOICE!"=="Y" (
+    :prompt_custom_path
+    set /p "CUSTOM_DIR=      Enter installation path: "
+    if "!CUSTOM_DIR!"=="" (
+        echo       [ERROR] Path cannot be empty.
+        goto :prompt_custom_path
+    )
+    set "INSTALL_DIR=!CUSTOM_DIR!"
+    echo.
+    if not exist "!INSTALL_DIR!\" (
+        echo       Path does not exist, creating...
+        mkdir "!INSTALL_DIR!" 2>nul
+        if errorlevel 1 (
+            echo.
+            echo [ERROR] Failed to create directory: !INSTALL_DIR!
+            echo         Try running this script as Administrator.
+            echo.
+            pause
+            exit /b 1
+        )
+        echo       OK - Directory created: !INSTALL_DIR!
+    ) else (
+        echo       OK - Path exists: !INSTALL_DIR!
+    )
+) else (
+    echo       Using default path: !INSTALL_DIR!
+)
+echo.
+
+:: ============================================================
+::  STEP 4 - SCAN JAVA REQUIREMENT
+:: ============================================================
+echo [2/6] Looking for JDK !TARGET_JAVA! installation...
 echo.
 
 :: --- Registry Scan (Oracle, etc.) ---
@@ -183,7 +221,7 @@ echo.
 :: ============================================================
 ::  STEP 3 - EXTRACT ZIP
 :: ============================================================
-echo [3/5] Extracting !APP_NAME!...
+echo [4/6] Extracting !APP_NAME!...
 
 if not exist "!INSTALL_DIR!" goto :proceed_install
 
@@ -292,7 +330,7 @@ echo.
 :: ============================================================
 ::  STEP 4 - GENERATE LAUNCHER
 :: ============================================================
-echo [4/5] Creating launcher file...
+echo [5/6] Creating launcher file...
 
 (
     echo @echo off
@@ -316,7 +354,7 @@ echo.
 :: ============================================================
 ::  STEP 5 - DESKTOP SHORTCUT (OPTIONAL)
 :: ============================================================
-echo [5/5] Desktop shortcut...
+echo [6/6] Desktop shortcut...
 echo.
 set /p "SHORTCUT_CHOICE=      Create !APP_NAME! shortcut on Desktop? [Y/N]: "
 

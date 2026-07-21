@@ -23,7 +23,7 @@ echo ""
 # ============================================================
 #  STEP 1 - CHECK ROOT / SUDO
 # ============================================================
-echo -e "${CYAN}[1/6] Checking permissions...${NC}"
+echo -e "${CYAN}[1/7] Checking permissions...${NC}"
 if [ "$EUID" -ne 0 ]; then
     echo -e "${RED}"
     echo "      [ERROR] This script must be run as root or with sudo."
@@ -40,7 +40,7 @@ echo ""
 # ============================================================
 #  STEP 2 - SCAN AND SELECT PDI ZIP FILE
 # ============================================================
-echo -e "${CYAN}[2/6] Scanning for PDI installer files in current folder...${NC}"
+echo -e "${CYAN}[2/7] Scanning for PDI installer files in current folder...${NC}"
 
 # Search for files matching pdi-ce* or pdi-de*
 shopt -s nullglob
@@ -120,9 +120,47 @@ echo -e "      Java required   : ${GREEN}Java $TARGET_JAVA${NC}"
 echo ""
 
 # ============================================================
-#  STEP 3 - SCAN JAVA REQUIREMENT
+#  STEP 3 - INSTALLATION PATH
 # ============================================================
-echo -e "${CYAN}[3/6] Looking for JDK $TARGET_JAVA installation...${NC}"
+echo -e "${CYAN}[3/7] Installation destination...${NC}"
+echo ""
+echo -e "      Default path: ${GREEN}$INSTALL_DIR${NC}"
+echo ""
+read -rp "      Use a custom installation path? [y/N]: " CUSTOM_PATH_CHOICE
+
+if [[ "$CUSTOM_PATH_CHOICE" =~ ^[yY]$ ]]; then
+    while true; do
+        read -rp "      Enter installation path: " CUSTOM_DIR
+        if [ -z "$CUSTOM_DIR" ]; then
+            echo -e "      ${RED}[ERROR] Path cannot be empty.${NC}"
+            continue
+        fi
+        INSTALL_DIR="$CUSTOM_DIR"
+        break
+    done
+    echo ""
+    if [ ! -d "$INSTALL_DIR" ]; then
+        echo "      Path does not exist, creating..."
+        mkdir -p "$INSTALL_DIR" 2>/dev/null || {
+            echo -e "${RED}"
+            echo "      [ERROR] Failed to create directory: $INSTALL_DIR"
+            echo "              Make sure the script is run with sudo."
+            echo -e "${NC}"
+            exit 1
+        }
+        echo -e "      ${GREEN}OK${NC} - Directory created: $INSTALL_DIR"
+    else
+        echo -e "      ${GREEN}OK${NC} - Path exists: $INSTALL_DIR"
+    fi
+else
+    echo -e "      Using default path: ${GREEN}$INSTALL_DIR${NC}"
+fi
+echo ""
+
+# ============================================================
+#  STEP 4 - SCAN JAVA REQUIREMENT
+# ============================================================
+echo -e "${CYAN}[4/7] Looking for JDK $TARGET_JAVA installation...${NC}"
 echo ""
 
 declare -a JAVA_PATHS=()
@@ -232,7 +270,7 @@ echo ""
 # ============================================================
 #  STEP 4 - EXTRACT ZIP
 # ============================================================
-echo -e "${CYAN}[4/6] Extracting $APP_NAME...${NC}"
+echo -e "${CYAN}[5/7] Extracting $APP_NAME...${NC}"
 
 if ! command -v unzip &>/dev/null; then
     echo -e "      ${YELLOW}unzip not found, installing...${NC}"
@@ -314,7 +352,7 @@ echo ""
 # ============================================================
 #  STEP 5 - FIX OWNERSHIP
 # ============================================================
-echo -e "${CYAN}[5/6] Fixing folder ownership...${NC}"
+echo -e "${CYAN}[6/7] Fixing folder ownership...${NC}"
 chown -R "$REAL_USER:$REAL_USER" "$INSTALL_DIR"
 echo -e "      ${GREEN}OK${NC} - Ownership set to: $REAL_USER"
 echo ""
@@ -322,7 +360,7 @@ echo ""
 # ============================================================
 #  STEP 6 - LAUNCHER, SYMLINK, DESKTOP
 # ============================================================
-echo -e "${CYAN}[6/6] Creating launcher and shortcuts...${NC}"
+echo -e "${CYAN}[7/7] Creating launcher and shortcuts...${NC}"
 
 cat > "$LAUNCHER" << LAUNCHER_EOF
 #!/bin/bash
