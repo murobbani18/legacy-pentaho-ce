@@ -13,6 +13,26 @@ Scripts to install Pentaho Data Integration (PDI) on Linux (Ubuntu) and Windows.
 
 ---
 
+> [!WARNING]
+> **PDI 10 and above — License Change**
+>
+> Starting from version **10.2 (August 2024)**, Hitachi Vantara replaced the traditional Community Edition with **Developer Edition (DE)**, released under the **Business Source License 1.1 (BSL 1.1)**.
+>
+> **BSL 1.1 prohibits production use.** PDI DE is only permitted for learning, testing, proof of concept, and local development.
+>
+> - **Do not use PDI DE in a production environment.**
+> - For production use of PDI 10.x and above, you must purchase a **Pentaho Enterprise Edition** subscription from Hitachi Vantara.
+>
+> **PDI 9.3 CE** is the last version licensed as open-source (LGPL/Apache) that can be used in production for free — however it reaches **End of Support on July 1, 2026** and will no longer receive official security patches after that date.
+>
+> | | PDI 9.3 CE | PDI 10.x Developer | PDI 10.x Enterprise |
+> |---|---|---|---|
+> | **License** | Open Source (LGPL/Apache) | BSL 1.1 | Commercial Subscription |
+> | **Production use** | Allowed (free) | **Not allowed** | Allowed |
+> | **Support status** | End of Support Jul 1 2026 | No official SLA | Active patching / LTS |
+
+---
+
 ## Prerequisites
 
 1. Download the PDI zip file for your target version.
