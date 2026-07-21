@@ -15,7 +15,13 @@ Scripts to install Pentaho Data Integration (PDI) on Linux (Ubuntu) and Windows.
 
 ## Prerequisites
 
-1. Download the PDI zip file for your target version from the [Pentaho releases page](https://sourceforge.net/projects/pentaho/files/).
+1. Download the PDI zip file for your target version.
+
+   > **Note:** Older PDI CE versions have been removed from Sourceforge. Use the links below instead.
+
+   - **PDI CE 7.x – 9.x** — [github.com/ambientelivre/legacy-pentaho-ce/releases](https://github.com/ambientelivre/legacy-pentaho-ce/releases)
+   - **PDI CE (latest)** — [Hitachi Vantara Pentaho Community Edition](https://www.hitachivantara.com/en-us/products/pentaho-platform/data-integration-analytics/pentaho-community-edition.html)
+
    The filename must match the pattern `pdi-ce-*.zip` (Community Edition) or `pdi-de-*.zip` (Developer Edition).
 
 2. Place the zip file in the **same folder as the installer script** before running.
