@@ -352,21 +352,31 @@ set "LAUNCHER_KITCHEN=!INSTALL_DIR!\launch-kitchen-!PDI_VERSION!.bat"
 :: --- Pan ---
 (
     echo @echo off
+    echo setlocal
     echo set PENTAHO_JAVA_HOME=!SELECTED_JAVA!
     echo set JAVA_HOME=!SELECTED_JAVA!
     echo set PATH=!SELECTED_JAVA!\bin;%%SystemRoot%%\system32;%%SystemRoot%%
-    echo cd /d "!INSTALL_DIR!"
-    echo call Pan.bat %%*
+    echo set initialDir=%%cd%%
+    echo pushd "!INSTALL_DIR!"
+    echo set STARTTITLE="Pan"
+    echo set SPOON_CONSOLE=1
+    echo call Spoon.bat -main org.pentaho.di.pan.Pan -initialDir "%%initialDir%%"\ %%*
+    echo popd
 ) > "!LAUNCHER_PAN!"
 
 :: --- Kitchen ---
 (
     echo @echo off
+    echo setlocal
     echo set PENTAHO_JAVA_HOME=!SELECTED_JAVA!
     echo set JAVA_HOME=!SELECTED_JAVA!
     echo set PATH=!SELECTED_JAVA!\bin;%%SystemRoot%%\system32;%%SystemRoot%%
-    echo cd /d "!INSTALL_DIR!"
-    echo call Kitchen.bat %%*
+    echo set initialDir=%%cd%%
+    echo pushd "!INSTALL_DIR!"
+    echo set STARTTITLE="Kitchen"
+    echo set SPOON_CONSOLE=1
+    echo call Spoon.bat -main org.pentaho.di.kitchen.Kitchen -initialDir "%%initialDir%%"\ %%*
+    echo popd
 ) > "!LAUNCHER_KITCHEN!"
 
 if not exist "!LAUNCHER!" (
