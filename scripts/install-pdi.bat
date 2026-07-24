@@ -117,50 +117,7 @@ echo       Java required   : Java !TARGET_JAVA!
 echo.
 
 :: ============================================================
-::  STEP 3 - INSTALLATION PATH
-:: ============================================================
-echo [3/6] Installation destination...
-echo.
-echo       Default path: !INSTALL_DIR!
-echo.
-set /p "CUSTOM_PATH_CHOICE=      Use a custom installation path? [Y/N]: "
-
-if /i "!CUSTOM_PATH_CHOICE!"=="Y" (
-    :prompt_custom_path
-    set /p "CUSTOM_DIR=      Enter installation path: "
-    :: Strip leading/trailing spaces from input
-    for /f "tokens=* delims= " %%X in ("!CUSTOM_DIR!") do set "CUSTOM_DIR=%%X"
-    if "!CUSTOM_DIR!"=="" (
-        echo       [ERROR] Path cannot be empty.
-        goto :prompt_custom_path
-    )
-    set "INSTALL_DIR=!CUSTOM_DIR!"
-    echo.
-    if not exist "!INSTALL_DIR!\" (
-        echo       Path does not exist, creating...
-        mkdir "!INSTALL_DIR!" 2>nul
-        if not exist "!INSTALL_DIR!\" (
-            echo.
-            echo [ERROR] Failed to create directory: !INSTALL_DIR!
-            echo         Try running this script as Administrator.
-            echo.
-            pause
-            exit /b 1
-        )
-        echo       OK - Directory created: !INSTALL_DIR!
-    ) else (
-        echo       OK - Path exists: !INSTALL_DIR!
-    )
-) else (
-    echo       Using default path: !INSTALL_DIR!
-)
-
-:: Set LAUNCHER here, AFTER INSTALL_DIR is finalized
-set "LAUNCHER=!INSTALL_DIR!\launch-pdi-!PDI_VERSION!.bat"
-echo.
-
-:: ============================================================
-::  STEP 4 - SCAN JAVA REQUIREMENT
+::  STEP 2 - SCAN JAVA REQUIREMENT
 :: ============================================================
 echo [2/6] Looking for JDK !TARGET_JAVA! installation...
 echo.
@@ -223,7 +180,50 @@ echo       Selected JDK: !SELECTED_JAVA!
 echo.
 
 :: ============================================================
-::  STEP 3 - EXTRACT ZIP
+::  STEP 3 - INSTALLATION PATH
+:: ============================================================
+echo [3/6] Installation destination...
+echo.
+echo       Default path: !INSTALL_DIR!
+echo.
+set /p "CUSTOM_PATH_CHOICE=      Use a custom installation path? [Y/N]: "
+
+if /i "!CUSTOM_PATH_CHOICE!"=="Y" (
+    :prompt_custom_path
+    set /p "CUSTOM_DIR=      Enter installation path: "
+    :: Strip leading/trailing spaces from input
+    for /f "tokens=* delims= " %%X in ("!CUSTOM_DIR!") do set "CUSTOM_DIR=%%X"
+    if "!CUSTOM_DIR!"=="" (
+        echo       [ERROR] Path cannot be empty.
+        goto :prompt_custom_path
+    )
+    set "INSTALL_DIR=!CUSTOM_DIR!"
+    echo.
+    if not exist "!INSTALL_DIR!\" (
+        echo       Path does not exist, creating...
+        mkdir "!INSTALL_DIR!" 2>nul
+        if not exist "!INSTALL_DIR!\" (
+            echo.
+            echo [ERROR] Failed to create directory: !INSTALL_DIR!
+            echo         Try running this script as Administrator.
+            echo.
+            pause
+            exit /b 1
+        )
+        echo       OK - Directory created: !INSTALL_DIR!
+    ) else (
+        echo       OK - Path exists: !INSTALL_DIR!
+    )
+) else (
+    echo       Using default path: !INSTALL_DIR!
+)
+
+:: Set LAUNCHER here, AFTER INSTALL_DIR is finalized
+set "LAUNCHER=!INSTALL_DIR!\launch-pdi-!PDI_VERSION!.bat"
+echo.
+
+:: ============================================================
+::  STEP 4 - EXTRACT ZIP
 :: ============================================================
 echo [4/6] Extracting !APP_NAME!...
 
