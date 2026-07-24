@@ -32,7 +32,6 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# Store the original user who called sudo
 REAL_USER="${SUDO_USER:-$USER}"
 echo -e "      ${GREEN}OK${NC} - Running as root (original user: $REAL_USER)."
 echo ""
@@ -42,7 +41,6 @@ echo ""
 # ============================================================
 echo -e "${CYAN}[2/7] Scanning for PDI installer files in current folder...${NC}"
 
-# Search for files matching pdi-ce* or pdi-de*
 shopt -s nullglob
 ZIP_FILES=("$SCRIPT_DIR"/pdi-ce*.zip "$SCRIPT_DIR"/pdi-de*.zip)
 shopt -u nullglob
@@ -88,21 +86,13 @@ echo ""
 #  DETERMINE PDI VERSION & JAVA REQUIREMENT
 # ============================================================
 if [[ "$ZIP_FILENAME" == *pdi-ce-7* ]]; then
-    PDI_VERSION="7"
-    PDI_EDITION="CE"
-    TARGET_JAVA="8"
+    PDI_VERSION="7"; PDI_EDITION="CE"; TARGET_JAVA="8"
 elif [[ "$ZIP_FILENAME" == *pdi-ce-8* ]]; then
-    PDI_VERSION="8"
-    PDI_EDITION="CE"
-    TARGET_JAVA="8"
+    PDI_VERSION="8"; PDI_EDITION="CE"; TARGET_JAVA="8"
 elif [[ "$ZIP_FILENAME" == *pdi-ce-9* ]]; then
-    PDI_VERSION="9"
-    PDI_EDITION="CE"
-    TARGET_JAVA="11"
+    PDI_VERSION="9"; PDI_EDITION="CE"; TARGET_JAVA="11"
 elif [[ "$ZIP_FILENAME" == *pdi-de-11* ]]; then
-    PDI_VERSION="11"
-    PDI_EDITION="DE"
-    TARGET_JAVA="17"
+    PDI_VERSION="11"; PDI_EDITION="DE"; TARGET_JAVA="17"
 else
     echo -e "${RED}      [ERROR] PDI version from file $ZIP_FILENAME is not recognized.${NC}"
     exit 1
@@ -111,7 +101,6 @@ fi
 APP_NAME="PDI $PDI_VERSION $PDI_EDITION"
 INSTALL_DIR="/opt/pentaho/design-tools/pdi-$PDI_VERSION"
 TEMP_EXTRACT="/tmp/pdi${PDI_VERSION}_tmp"
-LAUNCHER="$INSTALL_DIR/launch-pdi-$PDI_VERSION.sh"
 SYMLINK="/usr/local/bin/pdi-$PDI_VERSION"
 DESKTOP_FILE="/usr/share/applications/pdi-$PDI_VERSION.desktop"
 
@@ -131,6 +120,7 @@ read -rp "      Use a custom installation path? [y/N]: " CUSTOM_PATH_CHOICE
 if [[ "$CUSTOM_PATH_CHOICE" =~ ^[yY]$ ]]; then
     while true; do
         read -rp "      Enter installation path: " CUSTOM_DIR
+        CUSTOM_DIR="${CUSTOM_DIR#"${CUSTOM_DIR%%[![:space:]]*}"}"  # strip leading spaces
         if [ -z "$CUSTOM_DIR" ]; then
             echo -e "      ${RED}[ERROR] Path cannot be empty.${NC}"
             continue
@@ -155,6 +145,9 @@ if [[ "$CUSTOM_PATH_CHOICE" =~ ^[yY]$ ]]; then
 else
     echo -e "      Using default path: ${GREEN}$INSTALL_DIR${NC}"
 fi
+
+# Set LAUNCHER here, AFTER INSTALL_DIR is finalized
+LAUNCHER="$INSTALL_DIR/launch-pdi-$PDI_VERSION.sh"
 echo ""
 
 # ============================================================
@@ -171,14 +164,12 @@ add_candidate() {
 
     local version raw_ver major
     version=$("$path/bin/java" -version 2>&1 | head -1) || return 0
-
-    # Extract version from "1.8.0_312" or "17.0.2"
     raw_ver=$(echo "$version" | awk -F '"' '/version/ {print $2}') || return 0
 
     if [[ "$raw_ver" == 1.* ]]; then
-        major=$(echo "$raw_ver" | cut -d'.' -f2) # "1.8" -> "8"
+        major=$(echo "$raw_ver" | cut -d'.' -f2)
     else
-        major=$(echo "$raw_ver" | cut -d'.' -f1) # "11.x" -> "11", "17.x" -> "17"
+        major=$(echo "$raw_ver" | cut -d'.' -f1)
     fi
 
     [ "$major" = "$TARGET_JAVA" ] || return 0
@@ -201,7 +192,6 @@ safe_scan_dir() {
     return 0
 }
 
-# Scan based on target Java version
 safe_scan_dir "/usr/lib/jvm/temurin-$TARGET_JAVA*"
 safe_scan_dir "/usr/lib/jvm/temurin-${TARGET_JAVA}-jdk*"
 safe_scan_dir "/usr/lib/jvm/java-$TARGET_JAVA-openjdk*"
@@ -268,7 +258,7 @@ echo -e "      Selected JDK: ${GREEN}$SELECTED_JAVA${NC}"
 echo ""
 
 # ============================================================
-#  STEP 4 - EXTRACT ZIP
+#  STEP 5 - EXTRACT ZIP
 # ============================================================
 echo -e "${CYAN}[5/7] Extracting $APP_NAME...${NC}"
 
@@ -350,7 +340,7 @@ echo -e "      ${GREEN}OK${NC} - Extraction complete."
 echo ""
 
 # ============================================================
-#  STEP 5 - FIX OWNERSHIP
+#  STEP 6 - FIX OWNERSHIP
 # ============================================================
 echo -e "${CYAN}[6/7] Fixing folder ownership...${NC}"
 chown -R "$REAL_USER:$REAL_USER" "$INSTALL_DIR"
@@ -358,10 +348,18 @@ echo -e "      ${GREEN}OK${NC} - Ownership set to: $REAL_USER"
 echo ""
 
 # ============================================================
-#  STEP 6 - LAUNCHER, SYMLINK, DESKTOP
+#  STEP 7 - LAUNCHERS (SPOON, PAN, KITCHEN), SYMLINKS, DESKTOP
 # ============================================================
-echo -e "${CYAN}[7/7] Creating launcher and shortcuts...${NC}"
+echo -e "${CYAN}[7/7] Creating launchers and shortcuts...${NC}"
 
+LAUNCHER_PAN="$INSTALL_DIR/launch-pan-$PDI_VERSION.sh"
+LAUNCHER_KITCHEN="$INSTALL_DIR/launch-kitchen-$PDI_VERSION.sh"
+SYMLINK_PAN="/usr/local/bin/pan-$PDI_VERSION"
+SYMLINK_KITCHEN="/usr/local/bin/kitchen-$PDI_VERSION"
+DESKTOP_FILE_PAN="/usr/share/applications/pdi-pan-$PDI_VERSION.desktop"
+DESKTOP_FILE_KITCHEN="/usr/share/applications/pdi-kitchen-$PDI_VERSION.desktop"
+
+# --- Spoon launcher ---
 cat > "$LAUNCHER" << LAUNCHER_EOF
 #!/bin/bash
 export PENTAHO_JAVA_HOME="$SELECTED_JAVA"
@@ -371,22 +369,70 @@ cd "$INSTALL_DIR"
 bash spoon.sh
 LAUNCHER_EOF
 
-chmod +x "$LAUNCHER"
-chown "$REAL_USER:$REAL_USER" "$LAUNCHER"
-echo -e "      ${GREEN}OK${NC} - Launcher created: $LAUNCHER"
+# --- Pan launcher ---
+cat > "$LAUNCHER_PAN" << LAUNCHER_PAN_EOF
+#!/bin/bash
+export PENTAHO_JAVA_HOME="$SELECTED_JAVA"
+export JAVA_HOME="$SELECTED_JAVA"
+export PATH="\$JAVA_HOME/bin:\$PATH"
+cd "$INSTALL_DIR"
+bash pan.sh "\$@"
+LAUNCHER_PAN_EOF
 
-ln -sf "$LAUNCHER" "$SYMLINK"
-echo -e "      ${GREEN}OK${NC} - Global symlink: $SYMLINK"
+# --- Kitchen launcher ---
+cat > "$LAUNCHER_KITCHEN" << LAUNCHER_KITCHEN_EOF
+#!/bin/bash
+export PENTAHO_JAVA_HOME="$SELECTED_JAVA"
+export JAVA_HOME="$SELECTED_JAVA"
+export PATH="\$JAVA_HOME/bin:\$PATH"
+cd "$INSTALL_DIR"
+bash kitchen.sh "\$@"
+LAUNCHER_KITCHEN_EOF
 
+chmod +x "$LAUNCHER" "$LAUNCHER_PAN" "$LAUNCHER_KITCHEN"
+chown "$REAL_USER:$REAL_USER" "$LAUNCHER" "$LAUNCHER_PAN" "$LAUNCHER_KITCHEN"
+echo -e "      ${GREEN}OK${NC} - Spoon   launcher: $LAUNCHER"
+echo -e "      ${GREEN}OK${NC} - Pan     launcher: $LAUNCHER_PAN"
+echo -e "      ${GREEN}OK${NC} - Kitchen launcher: $LAUNCHER_KITCHEN"
+
+ln -sf "$LAUNCHER"         "$SYMLINK"
+ln -sf "$LAUNCHER_PAN"     "$SYMLINK_PAN"
+ln -sf "$LAUNCHER_KITCHEN" "$SYMLINK_KITCHEN"
+echo -e "      ${GREEN}OK${NC} - Global symlinks: spoon-$PDI_VERSION / pan-$PDI_VERSION / kitchen-$PDI_VERSION"
+
+# ============================================================
+#  DESKTOP ENTRIES - PER-TOOL CUSTOM NAME PROMPTS
+# ============================================================
 ICON_PATH="$INSTALL_DIR/spoon.png"
+DESKTOP_NAME_SPOON="$APP_NAME"
+DESKTOP_NAME_PAN="$APP_NAME Pan"
+DESKTOP_NAME_KITCHEN="$APP_NAME Kitchen"
 
-cat > "$DESKTOP_FILE" << DESKTOP_EOF
+echo ""
+echo "  --- Desktop entries ---"
+
+# Spoon desktop
+echo ""
+read -rp "      Create Spoon desktop entry? [y/N]: " SC_SPOON
+if [[ "$SC_SPOON" =~ ^[yY]$ ]]; then
+    read -rp "      Use custom name? [y/N]: " SC_SPOON_CUSTOM
+    if [[ "$SC_SPOON_CUSTOM" =~ ^[yY]$ ]]; then
+        while true; do
+            echo -e "      Default name: ${GREEN}$APP_NAME${NC}"
+            read -rp "      Enter name: " _NAME
+            _NAME="${_NAME#"${_NAME%%[![:space:]]*}"}"
+            [ -z "$_NAME" ] && echo -e "      ${RED}[ERROR] Name cannot be empty.${NC}" && continue
+            DESKTOP_NAME_SPOON="$_NAME"
+            break
+        done
+    fi
+    cat > "$DESKTOP_FILE" << DESKTOP_EOF
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=$APP_NAME
+Name=$DESKTOP_NAME_SPOON
 GenericName=Pentaho Data Integration $PDI_VERSION
-Comment=Pentaho Data Integration $PDI_EDITION ($ZIP_FILENAME)
+Comment=PDI $PDI_EDITION - Spoon GUI ($ZIP_FILENAME)
 Exec=$LAUNCHER
 Icon=$ICON_PATH
 Terminal=true
@@ -394,9 +440,84 @@ Categories=Development;Database;DataVisualization;
 Keywords=PDI;Pentaho;ETL;Kettle;Spoon;DataIntegration;
 StartupNotify=true
 DESKTOP_EOF
+    echo -e "      ${GREEN}OK${NC} - Spoon desktop entry: $DESKTOP_NAME_SPOON"
+else
+    echo "      Spoon desktop entry skipped."
+    DESKTOP_FILE=""
+fi
+
+# Pan desktop
+echo ""
+read -rp "      Create Pan desktop entry? [y/N]: " SC_PAN
+if [[ "$SC_PAN" =~ ^[yY]$ ]]; then
+    read -rp "      Use custom name? [y/N]: " SC_PAN_CUSTOM
+    if [[ "$SC_PAN_CUSTOM" =~ ^[yY]$ ]]; then
+        while true; do
+            echo -e "      Default name: ${GREEN}$APP_NAME Pan${NC}"
+            read -rp "      Enter name: " _NAME
+            _NAME="${_NAME#"${_NAME%%[![:space:]]*}"}"
+            [ -z "$_NAME" ] && echo -e "      ${RED}[ERROR] Name cannot be empty.${NC}" && continue
+            DESKTOP_NAME_PAN="$_NAME"
+            break
+        done
+    fi
+    cat > "$DESKTOP_FILE_PAN" << DESKTOP_PAN_EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=$DESKTOP_NAME_PAN
+GenericName=Pentaho Pan $PDI_VERSION
+Comment=PDI $PDI_EDITION - Pan transformation runner ($ZIP_FILENAME)
+Exec=$LAUNCHER_PAN
+Icon=$ICON_PATH
+Terminal=true
+Categories=Development;Database;DataVisualization;
+Keywords=PDI;Pentaho;ETL;Kettle;Pan;DataIntegration;
+StartupNotify=true
+DESKTOP_PAN_EOF
+    echo -e "      ${GREEN}OK${NC} - Pan desktop entry: $DESKTOP_NAME_PAN"
+else
+    echo "      Pan desktop entry skipped."
+    DESKTOP_FILE_PAN=""
+fi
+
+# Kitchen desktop
+echo ""
+read -rp "      Create Kitchen desktop entry? [y/N]: " SC_KITCHEN
+if [[ "$SC_KITCHEN" =~ ^[yY]$ ]]; then
+    read -rp "      Use custom name? [y/N]: " SC_KITCHEN_CUSTOM
+    if [[ "$SC_KITCHEN_CUSTOM" =~ ^[yY]$ ]]; then
+        while true; do
+            echo -e "      Default name: ${GREEN}$APP_NAME Kitchen${NC}"
+            read -rp "      Enter name: " _NAME
+            _NAME="${_NAME#"${_NAME%%[![:space:]]*}"}"
+            [ -z "$_NAME" ] && echo -e "      ${RED}[ERROR] Name cannot be empty.${NC}" && continue
+            DESKTOP_NAME_KITCHEN="$_NAME"
+            break
+        done
+    fi
+    cat > "$DESKTOP_FILE_KITCHEN" << DESKTOP_KITCHEN_EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=$DESKTOP_NAME_KITCHEN
+GenericName=Pentaho Kitchen $PDI_VERSION
+Comment=PDI $PDI_EDITION - Kitchen job runner ($ZIP_FILENAME)
+Exec=$LAUNCHER_KITCHEN
+Icon=$ICON_PATH
+Terminal=true
+Categories=Development;Database;DataVisualization;
+Keywords=PDI;Pentaho;ETL;Kettle;Kitchen;DataIntegration;
+StartupNotify=true
+DESKTOP_KITCHEN_EOF
+    echo -e "      ${GREEN}OK${NC} - Kitchen desktop entry: $DESKTOP_NAME_KITCHEN"
+else
+    echo "      Kitchen desktop entry skipped."
+    DESKTOP_FILE_KITCHEN=""
+fi
 
 update-desktop-database 2>/dev/null || true
-echo -e "      ${GREEN}OK${NC} - Application shortcut created: $DESKTOP_FILE"
+echo ""
 
 # Generate uninstaller
 UNINSTALL_SCRIPT="$INSTALL_DIR/uninstall-pdi-$PDI_VERSION.sh"
@@ -412,7 +533,11 @@ set -euo pipefail
 
 INSTALL_DIR="$INSTALL_DIR"
 SYMLINK="$SYMLINK"
-DESKTOP_FILE="$DESKTOP_FILE"
+SYMLINK_PAN="$SYMLINK_PAN"
+SYMLINK_KITCHEN="$SYMLINK_KITCHEN"
+DESKTOP_FILE="${DESKTOP_FILE:-}"
+DESKTOP_FILE_PAN="${DESKTOP_FILE_PAN:-}"
+DESKTOP_FILE_KITCHEN="${DESKTOP_FILE_KITCHEN:-}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -438,9 +563,13 @@ echo ""
 
 echo -e "\${CYAN}[2/4] Checking components to remove...\${NC}"
 FOUND=0
-[ -d "\$INSTALL_DIR" ]  && FOUND=1 && echo "        ✓ Install folder : \$INSTALL_DIR"
-[ -L "\$SYMLINK" ]      && FOUND=1 && echo "        ✓ Global symlink : \$SYMLINK"
-[ -f "\$DESKTOP_FILE" ] && FOUND=1 && echo "        ✓ Desktop shortcut: \$DESKTOP_FILE"
+[ -d "\$INSTALL_DIR" ]                                         && FOUND=1 && echo "        ✓ Install folder      : \$INSTALL_DIR"
+[ -L "\$SYMLINK" ]                                             && FOUND=1 && echo "        ✓ Symlink (spoon)     : \$SYMLINK"
+[ -L "\$SYMLINK_PAN" ]                                         && FOUND=1 && echo "        ✓ Symlink (pan)       : \$SYMLINK_PAN"
+[ -L "\$SYMLINK_KITCHEN" ]                                     && FOUND=1 && echo "        ✓ Symlink (kitchen)   : \$SYMLINK_KITCHEN"
+[ -n "\$DESKTOP_FILE" ] && [ -f "\$DESKTOP_FILE" ]             && FOUND=1 && echo "        ✓ Desktop (spoon)     : \$DESKTOP_FILE"
+[ -n "\$DESKTOP_FILE_PAN" ] && [ -f "\$DESKTOP_FILE_PAN" ]     && FOUND=1 && echo "        ✓ Desktop (pan)       : \$DESKTOP_FILE_PAN"
+[ -n "\$DESKTOP_FILE_KITCHEN" ] && [ -f "\$DESKTOP_FILE_KITCHEN" ] && FOUND=1 && echo "        ✓ Desktop (kitchen)   : \$DESKTOP_FILE_KITCHEN"
 
 if [ "\$FOUND" -eq 0 ]; then
     echo -e "\${YELLOW}      [INFO] No $APP_NAME components found.\${NC}"
@@ -473,19 +602,24 @@ else
     echo -e "      \${YELLOW}SKIP\${NC} - Folder not found."
 fi
 
-if [ -L "\$SYMLINK" ]; then
-    rm -f "\$SYMLINK"
-    echo -e "      \${GREEN}OK\${NC} - Symlink removed: \$SYMLINK"
-else
-    echo -e "      \${YELLOW}SKIP\${NC} - Symlink not found."
-fi
+for _SL in "\$SYMLINK" "\$SYMLINK_PAN" "\$SYMLINK_KITCHEN"; do
+    if [ -L "\$_SL" ]; then
+        rm -f "\$_SL"
+        echo -e "      \${GREEN}OK\${NC} - Symlink removed: \$_SL"
+    else
+        echo -e "      \${YELLOW}SKIP\${NC} - Symlink not found: \$_SL"
+    fi
+done
 
-if [ -f "\$DESKTOP_FILE" ]; then
-    rm -f "\$DESKTOP_FILE"
-    echo -e "      \${GREEN}OK\${NC} - Desktop shortcut removed."
-else
-    echo -e "      \${YELLOW}SKIP\${NC} - Desktop shortcut not found."
-fi
+for _DF in "\$DESKTOP_FILE" "\$DESKTOP_FILE_PAN" "\$DESKTOP_FILE_KITCHEN"; do
+    [ -z "\$_DF" ] && continue
+    if [ -f "\$_DF" ]; then
+        rm -f "\$_DF"
+        echo -e "      \${GREEN}OK\${NC} - Desktop entry removed: \$_DF"
+    else
+        echo -e "      \${YELLOW}SKIP\${NC} - Desktop entry not found: \$_DF"
+    fi
+done
 
 update-desktop-database 2>/dev/null || true
 echo -e "      \${GREEN}OK\${NC} - Application drawer updated."
@@ -511,19 +645,33 @@ echo "============================================================"
 echo ""
 echo "  Install directory : $INSTALL_DIR"
 echo "  JDK used          : $SELECTED_JAVA"
-echo "  Launcher          : $LAUNCHER"
-echo "  Global command    : pdi-$PDI_VERSION"
 echo "  Ownership         : $REAL_USER"
+echo ""
+echo "  Launchers:"
+echo "    Spoon   : $LAUNCHER"
+echo "    Pan     : $LAUNCHER_PAN"
+echo "    Kitchen : $LAUNCHER_KITCHEN"
+echo ""
+echo "  Global commands:"
+echo "    spoon-$PDI_VERSION  /  pan-$PDI_VERSION  /  kitchen-$PDI_VERSION"
+echo ""
+[ -n "$DESKTOP_FILE" ]         && echo "  Desktop (Spoon)   : $DESKTOP_NAME_SPOON"
+[ -n "$DESKTOP_FILE_PAN" ]     && echo "  Desktop (Pan)     : $DESKTOP_NAME_PAN"
+[ -n "$DESKTOP_FILE_KITCHEN" ] && echo "  Desktop (Kitchen) : $DESKTOP_NAME_KITCHEN"
+echo ""
 echo "  Uninstaller       : $INSTALL_DIR/uninstall-pdi-$PDI_VERSION.sh"
 echo ""
-echo "  To launch $APP_NAME:"
-echo "    pdi-$PDI_VERSION"
-echo "    or: bash $LAUNCHER"
+echo "  To launch Spoon:"
+echo "    spoon-$PDI_VERSION   or: bash $LAUNCHER"
+echo ""
+echo "  To run a transformation:"
+echo "    pan-$PDI_VERSION -file=/path/to/trans.ktr"
+echo ""
+echo "  To run a job:"
+echo "    kitchen-$PDI_VERSION -file=/path/to/job.kjb"
 echo ""
 echo "  To uninstall:"
 echo "    sudo bash $INSTALL_DIR/uninstall-pdi-$PDI_VERSION.sh"
-echo ""
-echo "  The app is also available in the Application Drawer (search 'PDI $PDI_VERSION')"
 echo ""
 echo "============================================================"
 echo ""

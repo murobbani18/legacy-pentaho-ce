@@ -111,7 +111,6 @@ exit /b 1
 set "APP_NAME=PDI !PDI_VERSION! !PDI_EDITION!"
 set "INSTALL_DIR=C:\pentaho\design-tools\pdi-!PDI_VERSION!"
 set "TEMP_EXTRACT=C:\pdi!PDI_VERSION!_tmp"
-set "LAUNCHER=!INSTALL_DIR!\launch-pdi-!PDI_VERSION!.bat"
 
 echo       Install target  : !APP_NAME!
 echo       Java required   : Java !TARGET_JAVA!
@@ -129,6 +128,8 @@ set /p "CUSTOM_PATH_CHOICE=      Use a custom installation path? [Y/N]: "
 if /i "!CUSTOM_PATH_CHOICE!"=="Y" (
     :prompt_custom_path
     set /p "CUSTOM_DIR=      Enter installation path: "
+    :: Strip leading/trailing spaces from input
+    for /f "tokens=* delims= " %%X in ("!CUSTOM_DIR!") do set "CUSTOM_DIR=%%X"
     if "!CUSTOM_DIR!"=="" (
         echo       [ERROR] Path cannot be empty.
         goto :prompt_custom_path
@@ -138,7 +139,7 @@ if /i "!CUSTOM_PATH_CHOICE!"=="Y" (
     if not exist "!INSTALL_DIR!\" (
         echo       Path does not exist, creating...
         mkdir "!INSTALL_DIR!" 2>nul
-        if errorlevel 1 (
+        if not exist "!INSTALL_DIR!\" (
             echo.
             echo [ERROR] Failed to create directory: !INSTALL_DIR!
             echo         Try running this script as Administrator.
@@ -153,6 +154,9 @@ if /i "!CUSTOM_PATH_CHOICE!"=="Y" (
 ) else (
     echo       Using default path: !INSTALL_DIR!
 )
+
+:: Set LAUNCHER here, AFTER INSTALL_DIR is finalized
+set "LAUNCHER=!INSTALL_DIR!\launch-pdi-!PDI_VERSION!.bat"
 echo.
 
 :: ============================================================
@@ -328,10 +332,14 @@ echo         OK - Extraction complete.
 echo.
 
 :: ============================================================
-::  STEP 4 - GENERATE LAUNCHER
+::  STEP 5 - GENERATE LAUNCHERS (SPOON, PAN, KITCHEN)
 :: ============================================================
-echo [5/6] Creating launcher file...
+echo [5/6] Creating launcher files...
 
+set "LAUNCHER_PAN=!INSTALL_DIR!\launch-pan-!PDI_VERSION!.bat"
+set "LAUNCHER_KITCHEN=!INSTALL_DIR!\launch-kitchen-!PDI_VERSION!.bat"
+
+:: --- Spoon ---
 (
     echo @echo off
     echo set PENTAHO_JAVA_HOME=!SELECTED_JAVA!
@@ -341,34 +349,147 @@ echo [5/6] Creating launcher file...
     echo call Spoon.bat
 ) > "!LAUNCHER!"
 
+:: --- Pan ---
+(
+    echo @echo off
+    echo set PENTAHO_JAVA_HOME=!SELECTED_JAVA!
+    echo set JAVA_HOME=!SELECTED_JAVA!
+    echo set PATH=!SELECTED_JAVA!\bin;%%SystemRoot%%\system32;%%SystemRoot%%
+    echo cd /d "!INSTALL_DIR!"
+    echo call Pan.bat %%*
+) > "!LAUNCHER_PAN!"
+
+:: --- Kitchen ---
+(
+    echo @echo off
+    echo set PENTAHO_JAVA_HOME=!SELECTED_JAVA!
+    echo set JAVA_HOME=!SELECTED_JAVA!
+    echo set PATH=!SELECTED_JAVA!\bin;%%SystemRoot%%\system32;%%SystemRoot%%
+    echo cd /d "!INSTALL_DIR!"
+    echo call Kitchen.bat %%*
+) > "!LAUNCHER_KITCHEN!"
+
 if not exist "!LAUNCHER!" (
     echo.
-    echo [ERROR] Failed to create launcher file.
+    echo [ERROR] Failed to create Spoon launcher.
     echo.
     pause
     exit /b 1
 )
-echo       OK - Launcher created: !LAUNCHER!
+if not exist "!LAUNCHER_PAN!" (
+    echo.
+    echo [ERROR] Failed to create Pan launcher.
+    echo.
+    pause
+    exit /b 1
+)
+if not exist "!LAUNCHER_KITCHEN!" (
+    echo.
+    echo [ERROR] Failed to create Kitchen launcher.
+    echo.
+    pause
+    exit /b 1
+)
+
+echo       OK - Spoon   launcher: !LAUNCHER!
+echo       OK - Pan     launcher: !LAUNCHER_PAN!
+echo       OK - Kitchen launcher: !LAUNCHER_KITCHEN!
 echo.
 
 :: ============================================================
-::  STEP 5 - DESKTOP SHORTCUT (OPTIONAL)
+::  STEP 6 - DESKTOP SHORTCUTS (OPTIONAL, PER TOOL)
 :: ============================================================
-echo [6/6] Desktop shortcut...
+echo [6/6] Desktop shortcuts...
 echo.
-set /p "SHORTCUT_CHOICE=      Create !APP_NAME! shortcut on Desktop? [Y/N]: "
 
-if /i "!SHORTCUT_CHOICE!"=="Y" (
+set "SHORTCUT_NAME_SPOON=!APP_NAME!"
+set "SHORTCUT_NAME_PAN=!APP_NAME! Pan"
+set "SHORTCUT_NAME_KITCHEN=!APP_NAME! Kitchen"
+set "SHORTCUT_SPOON_CREATED=N"
+set "SHORTCUT_PAN_CREATED=N"
+set "SHORTCUT_KITCHEN_CREATED=N"
+
+:: --- Spoon shortcut ---
+set /p "SC_SPOON=      Create Spoon shortcut on Desktop? [Y/N]: "
+if /i "!SC_SPOON!"=="Y" (
+    echo.
+    set /p "SC_SPOON_CUSTOM=      Use custom shortcut name? [Y/N]: "
+    if /i "!SC_SPOON_CUSTOM!"=="Y" (
+        :prompt_spoon_name
+        echo       Default name: !APP_NAME!
+        set /p "SHORTCUT_NAME_SPOON=      Enter shortcut name: "
+        for /f "tokens=* delims= " %%X in ("!SHORTCUT_NAME_SPOON!") do set "SHORTCUT_NAME_SPOON=%%X"
+        if "!SHORTCUT_NAME_SPOON!"=="" (
+            echo       [ERROR] Name cannot be empty.
+            goto :prompt_spoon_name
+        )
+    )
     powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-        "$ws = New-Object -ComObject WScript.Shell; $sc = $ws.CreateShortcut('%USERPROFILE%\Desktop\!APP_NAME!.lnk'); $sc.TargetPath = '!LAUNCHER!'; $sc.WorkingDirectory = '!INSTALL_DIR!'; $sc.Description = 'Pentaho Data Integration !PDI_VERSION! !PDI_EDITION!'; $sc.Save()"
-
-    if exist "%USERPROFILE%\Desktop\!APP_NAME!.lnk" (
-        echo       OK - Shortcut created on Desktop.
+        "$ws = New-Object -ComObject WScript.Shell; $sc = $ws.CreateShortcut('%USERPROFILE%\Desktop\!SHORTCUT_NAME_SPOON!.lnk'); $sc.TargetPath = '!LAUNCHER!'; $sc.WorkingDirectory = '!INSTALL_DIR!'; $sc.Description = 'PDI !PDI_VERSION! !PDI_EDITION! - Spoon'; $sc.Save()"
+    if exist "%USERPROFILE%\Desktop\!SHORTCUT_NAME_SPOON!.lnk" (
+        set "SHORTCUT_SPOON_CREATED=Y"
+        echo       OK - Spoon shortcut created: !SHORTCUT_NAME_SPOON!
     ) else (
-        echo       [WARN] Shortcut creation failed, but installation succeeded.
+        echo       [WARN] Spoon shortcut creation failed.
     )
 ) else (
-    echo       Shortcut skipped.
+    echo       Spoon shortcut skipped.
+)
+echo.
+
+:: --- Pan shortcut ---
+set /p "SC_PAN=      Create Pan shortcut on Desktop? [Y/N]: "
+if /i "!SC_PAN!"=="Y" (
+    echo.
+    set /p "SC_PAN_CUSTOM=      Use custom shortcut name? [Y/N]: "
+    if /i "!SC_PAN_CUSTOM!"=="Y" (
+        :prompt_pan_name
+        echo       Default name: !APP_NAME! Pan
+        set /p "SHORTCUT_NAME_PAN=      Enter shortcut name: "
+        for /f "tokens=* delims= " %%X in ("!SHORTCUT_NAME_PAN!") do set "SHORTCUT_NAME_PAN=%%X"
+        if "!SHORTCUT_NAME_PAN!"=="" (
+            echo       [ERROR] Name cannot be empty.
+            goto :prompt_pan_name
+        )
+    )
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+        "$ws = New-Object -ComObject WScript.Shell; $sc = $ws.CreateShortcut('%USERPROFILE%\Desktop\!SHORTCUT_NAME_PAN!.lnk'); $sc.TargetPath = '!LAUNCHER_PAN!'; $sc.WorkingDirectory = '!INSTALL_DIR!'; $sc.Description = 'PDI !PDI_VERSION! !PDI_EDITION! - Pan'; $sc.Save()"
+    if exist "%USERPROFILE%\Desktop\!SHORTCUT_NAME_PAN!.lnk" (
+        set "SHORTCUT_PAN_CREATED=Y"
+        echo       OK - Pan shortcut created: !SHORTCUT_NAME_PAN!
+    ) else (
+        echo       [WARN] Pan shortcut creation failed.
+    )
+) else (
+    echo       Pan shortcut skipped.
+)
+echo.
+
+:: --- Kitchen shortcut ---
+set /p "SC_KITCHEN=      Create Kitchen shortcut on Desktop? [Y/N]: "
+if /i "!SC_KITCHEN!"=="Y" (
+    echo.
+    set /p "SC_KITCHEN_CUSTOM=      Use custom shortcut name? [Y/N]: "
+    if /i "!SC_KITCHEN_CUSTOM!"=="Y" (
+        :prompt_kitchen_name
+        echo       Default name: !APP_NAME! Kitchen
+        set /p "SHORTCUT_NAME_KITCHEN=      Enter shortcut name: "
+        for /f "tokens=* delims= " %%X in ("!SHORTCUT_NAME_KITCHEN!") do set "SHORTCUT_NAME_KITCHEN=%%X"
+        if "!SHORTCUT_NAME_KITCHEN!"=="" (
+            echo       [ERROR] Name cannot be empty.
+            goto :prompt_kitchen_name
+        )
+    )
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+        "$ws = New-Object -ComObject WScript.Shell; $sc = $ws.CreateShortcut('%USERPROFILE%\Desktop\!SHORTCUT_NAME_KITCHEN!.lnk'); $sc.TargetPath = '!LAUNCHER_KITCHEN!'; $sc.WorkingDirectory = '!INSTALL_DIR!'; $sc.Description = 'PDI !PDI_VERSION! !PDI_EDITION! - Kitchen'; $sc.Save()"
+    if exist "%USERPROFILE%\Desktop\!SHORTCUT_NAME_KITCHEN!.lnk" (
+        set "SHORTCUT_KITCHEN_CREATED=Y"
+        echo       OK - Kitchen shortcut created: !SHORTCUT_NAME_KITCHEN!
+    ) else (
+        echo       [WARN] Kitchen shortcut creation failed.
+    )
+) else (
+    echo       Kitchen shortcut skipped.
 )
 
 :: ============================================================
@@ -381,10 +502,15 @@ echo ============================================================
 echo.
 echo   Install directory : !INSTALL_DIR!
 echo   JDK used          : !SELECTED_JAVA!
-echo   Launcher          : !LAUNCHER!
 echo.
-echo   To launch !APP_NAME!, run:
-echo   !LAUNCHER!
+echo   Launchers:
+echo     Spoon   : !LAUNCHER!
+echo     Pan     : !LAUNCHER_PAN!
+echo     Kitchen : !LAUNCHER_KITCHEN!
+echo.
+if /i "!SHORTCUT_SPOON_CREATED!"=="Y"   echo   Desktop - Spoon   : !SHORTCUT_NAME_SPOON!
+if /i "!SHORTCUT_PAN_CREATED!"=="Y"     echo   Desktop - Pan     : !SHORTCUT_NAME_PAN!
+if /i "!SHORTCUT_KITCHEN_CREATED!"=="Y" echo   Desktop - Kitchen : !SHORTCUT_NAME_KITCHEN!
 echo.
 echo ============================================================
 echo.
